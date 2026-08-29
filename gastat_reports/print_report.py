@@ -372,6 +372,8 @@ def employee_html(data):
 
 	cards = f"""
     <div class="summary-box">
+        <div class="card"><div class="k">نسبة السعوديين</div><div class="v">{summary['saudi_pct']}%</div></div>
+        <div class="card"><div class="k">نسبة غير السعوديين</div><div class="v">{summary['nonsaudi_pct']}%</div></div>
         <div class="card"><div class="k">سعوديون (ذكور)</div><div class="v">{summary['saudi_male']}</div></div>
         <div class="card"><div class="k">سعوديات (إناث)</div><div class="v">{summary['saudi_female']}</div></div>
         <div class="card"><div class="k">غير سعوديين (ذكور)</div><div class="v">{summary['nonsaudi_male']}</div></div>
@@ -592,6 +594,8 @@ def export_employee_excel(company=None, month=0, year=0, **kwargs):
 	# summary
 	srow = 4
 	stats = [
+		("Saudi %", summary["saudi_pct"]),
+		("Non-Saudi %", summary["nonsaudi_pct"]),
 		("Saudi Males", summary["saudi_male"]),
 		("Saudi Females", summary["saudi_female"]),
 		("Non-Saudi Males", summary["nonsaudi_male"]),
