@@ -1,0 +1,284 @@
+/* ============================================================
+   GASTAT REPORT PAGES - Modern Design System
+   ============================================================ */
+
+.gastat-page {
+	direction: rtl;
+	font-family: "Cairo", "Segoe UI", Tahoma, "Helvetica Neue", Arial, sans-serif;
+	background: radial-gradient(1200px 600px at 100% -10%, #e0f2fe 0%, rgba(224,242,254,0) 55%),
+	            linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+	min-height: calc(100vh - 100px);
+	padding: 26px 30px 40px;
+	color: #0f172a;
+}
+.gastat-page * { box-sizing: border-box; }
+.gastat-page h1, .gastat-page h2, .gastat-page h3 { font-family: "Cairo", "Segoe UI", Tahoma, sans-serif; }
+
+/* ---------- Hero header ---------- */
+.gastat-header {
+	position: relative;
+	overflow: hidden;
+	border-radius: 20px;
+	padding: 28px 30px;
+	color: #ffffff;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 18px;
+	margin-bottom: 22px;
+	background: linear-gradient(120deg, #0b3a5c 0%, #0f766e 55%, #14b8a6 105%);
+	box-shadow: 0 18px 40px -12px rgba(11, 58, 92, 0.45);
+}
+.gastat-header.alt {
+	background: linear-gradient(120deg, #1e1b4b 0%, #3730a3 55%, #6366f1 105%);
+	box-shadow: 0 18px 40px -12px rgba(30, 27, 75, 0.5);
+}
+.gastat-header::before {
+	content: "";
+	position: absolute; inset: 0;
+	background-image: radial-gradient(rgba(255,255,255,0.14) 1.5px, transparent 1.5px);
+	background-size: 22px 22px;
+	pointer-events: none;
+	opacity: 0.5;
+}
+.gastat-header::after {
+	content: "";
+	position: absolute;
+	width: 260px; height: 260px;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(255,255,255,0.16), transparent 65%);
+	top: -120px; left: -60px;
+	pointer-events: none;
+}
+.gastat-header .brand { display: flex; align-items: center; gap: 18px; position: relative; z-index: 1; }
+.gastat-header .brand .logo-holder {
+	width: 62px; height: 62px;
+	border-radius: 16px;
+	background: rgba(255,255,255,0.16);
+	border: 1px solid rgba(255,255,255,0.28);
+	backdrop-filter: blur(4px);
+	display: flex; align-items: center; justify-content: center;
+	flex-shrink: 0;
+	box-shadow: 0 8px 20px -6px rgba(0,0,0,0.25);
+}
+.gastat-header .brand .logo-holder img { width: 100%; height: 100%; object-fit: contain; }
+.gastat-header .brand .logo-holder svg { width: 32px; height: 32px; fill: #fff; }
+.gastat-header .head-text h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.01em; }
+.gastat-header .head-text p { margin: 5px 0 0; font-size: 13px; opacity: 0.85; letter-spacing: 0.03em; }
+.gastat-header .head-text .loc { margin-top: 3px; font-size: 11px; opacity: 0.7; }
+.gastat-header .date-badge {
+	background: rgba(255,255,255,0.12);
+	border: 1px solid rgba(255,255,255,0.28);
+	backdrop-filter: blur(4px);
+	border-radius: 14px;
+	padding: 10px 18px;
+	font-size: 13px;
+	text-align: center;
+	min-width: 170px;
+	position: relative; z-index: 1;
+}
+.gastat-header .date-badge strong { display: block; font-size: 16px; font-weight: 800; }
+
+/* ---------- Filter bar ---------- */
+.gastat-filters {
+	background: #ffffff;
+	border: 1px solid #e2e8f0;
+	border-radius: 16px;
+	padding: 18px 20px;
+	display: flex;
+	align-items: flex-end;
+	gap: 16px;
+	flex-wrap: wrap;
+	box-shadow: 0 6px 24px -8px rgba(15, 23, 42, 0.12);
+	margin-bottom: 24px;
+	position: relative; z-index: 2;
+}
+.gastat-filters .f-field { min-width: 150px; flex: 1; }
+.gastat-filters label {
+	display: block; font-size: 12px; font-weight: 700; color: #475569;
+	margin-bottom: 7px; letter-spacing: 0.02em;
+}
+.gastat-filters select, .gastat-filters input {
+	width: 100%; padding: 11px 14px;
+	border: 1px solid #cbd5e1; border-radius: 10px;
+	font-size: 14px; background: #f8fafc; color: #0f172a;
+	font-family: inherit; cursor: pointer;
+	transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.gastat-filters select:focus, .gastat-filters input:focus {
+	outline: none; border-color: #0f766e;
+	background: #fff;
+	box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+}
+.gastat-filters .f-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ---------- Buttons ---------- */
+.btn-gastat {
+	border: none; border-radius: 11px; padding: 11px 18px;
+	font-size: 13.5px; font-weight: 700; cursor: pointer;
+	display: inline-flex; align-items: center; gap: 8px;
+	transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
+	white-space: nowrap;
+	letter-spacing: 0.01em;
+}
+.btn-gastat svg { width: 17px; height: 17px; fill: currentColor; }
+.btn-gastat:active { transform: translateY(1px); }
+.btn-primary-g {
+	background: linear-gradient(135deg, #0f766e, #14b8a6);
+	color: #fff;
+	box-shadow: 0 8px 20px -6px rgba(15,118,110,0.55);
+}
+.btn-primary-g:hover { filter: brightness(1.05); box-shadow: 0 10px 24px -6px rgba(15,118,110,0.65); transform: translateY(-1px); }
+.btn-export-pdf { background: linear-gradient(135deg, #dc2626, #ef4444); color: #fff; box-shadow: 0 8px 20px -6px rgba(220,38,38,0.5); }
+.btn-export-pdf:hover { filter: brightness(1.05); box-shadow: 0 10px 24px -6px rgba(220,38,38,0.6); transform: translateY(-1px); }
+.btn-export-xls { background: linear-gradient(135deg, #16a34a, #22c55e); color: #fff; box-shadow: 0 8px 20px -6px rgba(22,163,74,0.5); }
+.btn-export-xls:hover { filter: brightness(1.05); box-shadow: 0 10px 24px -6px rgba(22,163,74,0.6); transform: translateY(-1px); }
+.btn-gastat:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+/* ---------- Loading bar ---------- */
+.gastat-loading {
+	display: flex; align-items: center; gap: 12px; color: #0f766e;
+	font-weight: 700; padding: 16px 18px; margin-bottom: 20px;
+	background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px;
+	box-shadow: 0 6px 20px -8px rgba(15,23,42,0.1);
+}
+.gastat-loading .spinner {
+	width: 20px; height: 20px;
+	border: 3px solid #99f6e4; border-top-color: #0f766e;
+	border-radius: 50%; animation: gspin 0.7s linear infinite;
+}
+@keyframes gspin { to { transform: rotate(360deg); } }
+
+/* ---------- Summary cards ---------- */
+.gastat-cards {
+	display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 18px; margin-bottom: 24px;
+}
+.gstat-card {
+	background: #fff; border: 1px solid #eef2f7;
+	border-radius: 18px; padding: 20px;
+	display: flex; align-items: center; gap: 16px;
+	box-shadow: 0 8px 26px -12px rgba(15,23,42,0.14);
+	position: relative; overflow: hidden;
+	transition: transform 0.16s, box-shadow 0.16s;
+}
+.gstat-card:hover { transform: translateY(-4px); box-shadow: 0 16px 34px -12px rgba(15,23,42,0.22); }
+.gstat-card::after {
+	content: ""; position: absolute; inset: 0 0 auto 0; height: 5px;
+	background: linear-gradient(90deg, var(--gc1, #2563eb), var(--gc2, #60a5fa));
+}
+.gstat-card .icon {
+	width: 54px; height: 54px; border-radius: 15px;
+	display: flex; align-items: center; justify-content: center;
+	flex-shrink: 0;
+	box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
+}
+.gstat-card .icon svg { width: 26px; height: 26px; fill: #fff; }
+.gstat-card .c-label { font-size: 12.5px; color: #64748b; font-weight: 600; }
+.gstat-card .c-value { font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 3px; line-height: 1.15; }
+.gstat-card .c-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+.c-blue    { --gc1: #2563eb; --gc2: #60a5fa; } .c-blue .icon    { background: linear-gradient(135deg,#2563eb,#3b82f6); }
+.c-green   { --gc1: #059669; --gc2: #34d399; } .c-green .icon   { background: linear-gradient(135deg,#059669,#10b981); }
+.c-orange  { --gc1: #d97706; --gc2: #fbbf24; } .c-orange .icon  { background: linear-gradient(135deg,#d97706,#f59e0b); }
+.c-purple  { --gc1: #7c3aed; --gc2: #a78bfa; } .c-purple .icon  { background: linear-gradient(135deg,#7c3aed,#8b5cf6); }
+.c-pink    { --gc1: #db2777; --gc2: #f472b6; } .c-pink .icon    { background: linear-gradient(135deg,#db2777,#ec4899); }
+.c-indigo  { --gc1: #4f46e5; --gc2: #818cf8; } .c-indigo .icon  { background: linear-gradient(135deg,#4f46e5,#6366f1); }
+.c-cyan    { --gc1: #0891b2; --gc2: #22d3ee; } .c-cyan .icon    { background: linear-gradient(135deg,#0891b2,#06b6d4); }
+.c-rose    { --gc1: #be123c; --gc2: #fb7185; } .c-rose .icon    { background: linear-gradient(135deg,#be123c,#f43f5e); }
+
+/* ---------- Charts ---------- */
+.gastat-charts {
+	display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+	gap: 18px; margin-bottom: 24px;
+}
+.gastat-chart-box {
+	background: #fff; border: 1px solid #eef2f7; border-radius: 18px;
+	padding: 22px; box-shadow: 0 8px 26px -12px rgba(15,23,42,0.14);
+	transition: transform 0.16s, box-shadow 0.16s;
+}
+.gastat-chart-box:hover { transform: translateY(-3px); box-shadow: 0 14px 32px -12px rgba(15,23,42,0.2); }
+.gastat-chart-box h3 { margin: 0 0 14px; font-size: 15px; color: #1e293b; font-weight: 800; }
+.gastat-chart-box .chart-wrap { height: 320px; }
+
+/* ---------- Data table ---------- */
+.gastat-table-wrap {
+	background: #fff; border: 1px solid #eef2f7; border-radius: 18px;
+	box-shadow: 0 8px 26px -12px rgba(15,23,42,0.14); overflow: hidden;
+}
+.gastat-table-wrap .table-header {
+	padding: 18px 24px; border-bottom: 1px solid #e2e8f0;
+	display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+	background: linear-gradient(180deg, #fbfdff, #f8fafc);
+}
+.gastat-table-wrap .table-header h3 { margin: 0; font-size: 16px; color: #0f172a; font-weight: 800; }
+.gastat-table-wrap .table-header .count-pill {
+	background: #e8f5f3; color: #0f766e; border: 1px solid #c7ece6;
+	border-radius: 999px; padding: 5px 14px; font-size: 12px; font-weight: 800;
+}
+.gastat-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.gastat-table thead th {
+	background: #f8fafc; color: #475569; font-weight: 700; text-align: right;
+	padding: 14px 16px; border-bottom: 2px solid #e2e8f0; font-size: 12px;
+	text-transform: uppercase; letter-spacing: 0.04em;
+	position: sticky; top: 0; z-index: 1;
+}
+.gastat-table tbody td {
+	padding: 13px 16px; border-bottom: 1px solid #f1f5f9; color: #0f172a; vertical-align: middle;
+}
+.gastat-table tbody tr:nth-child(even) { background: #fafcff; }
+.gastat-table tbody tr:hover { background: #f0fdfa; }
+.gastat-table .num { text-align: left; font-variant-numeric: tabular-nums; }
+.gastat-table .total-row td {
+	background: linear-gradient(135deg, #0f766e, #14b8a6) !important; color: #fff;
+	font-weight: 800; font-size: 13.5px;
+}
+.gastat-table .section-row td {
+	background: linear-gradient(135deg, #e2e8f0, #eef2f7) !important; color: #0f766e;
+	font-weight: 800; font-size: 13px;
+}
+.gastat-table .subtotal-row td { background: #fef3c7 !important; color: #92400e; font-weight: 700; }
+.gastat-badge {
+	display: inline-block; padding: 4px 12px; border-radius: 999px;
+	font-size: 11px; font-weight: 800; letter-spacing: 0.02em;
+}
+.gstat-badge-green { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.gstat-badge-purple { background: #ede9fe; color: #5b21b6; border: 1px solid #ddd6fe; }
+.gstat-badge-amber  { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
+
+/* ---------- Empty / message ---------- */
+.gastat-empty {
+	background: #fff; border: 1px dashed #cbd5e1; border-radius: 18px;
+	padding: 70px 20px; text-align: center; color: #94a3b8;
+	box-shadow: 0 8px 26px -12px rgba(15,23,42,0.1); margin-bottom: 20px;
+}
+.gastat-empty svg { width: 60px; height: 60px; fill: #cbd5e1; margin-bottom: 16px; }
+.gastat-empty .error-msg { color: #dc2626; font-weight: 700; margin-top: 10px; }
+
+/* ---------- Table responsive row ---------- */
+.gastat-table-resp { overflow: auto; max-height: 540px; border-bottom-left-radius: 18px; border-bottom-right-radius: 18px; }
+.gastat-table-resp::-webkit-scrollbar { width: 9px; height: 9px; }
+.gastat-table-resp::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9px; }
+.gastat-table-resp::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+@media (max-width: 700px) {
+	.gastat-page { padding: 16px 14px; }
+	.gastat-header { padding: 20px; }
+	.gastat-cards { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+}
+
+/* ---------- Print ---------- */
+@media print {
+	body.no-sidebar { background: #fff !important; }
+	.gastat-filters, .gastat-charts, .btn-gastat, .gastat-print-actions, .gastat-header .date-badge,
+	.gastat-actions-bar, .no-print { display: none !important; }
+	.gastat-page { padding: 0; background: #fff; }
+	.gastat-header { box-shadow: none; background: #0f766e !important; }
+	.gastat-header::before, .gastat-header::after { display: none; }
+	.gastat-cards { grid-template-columns: repeat(4, 1fr); }
+	.gastat-table-wrap, .gastat-table-wrap .table-header, .gastat-table thead th, .gastat-table tbody td { box-shadow: none; color: #000 !important; }
+	.gastat-table thead th { background: #fff !important; color: #000 !important; }
+	.gastat-table tbody tr:nth-child(even) { background: #fff !important; }
+	.gastat-table tbody tr:hover { background: #fff !important; }
+	.gastat-table .total-row td { background: #374151 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

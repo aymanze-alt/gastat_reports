@@ -1,0 +1,35 @@
+[project]
+name = "gastat_reports"
+authors = [
+    { name = "GASTAT" }
+]
+description = "Monthly Industrial Production and Employee Statistics reports for the General Authority for Statistics (GASTAT), Saudi Arabia."
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+
+[project.urls]
+issues = "https://github.com/gastat/gastat_reports/issues"
+source = "https://github.com/gastat/gastat_reports"
+documentation = "https://github.com/gastat/gastat_reports"
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<16.0.0"
+
+[tool.bench.dev-dependencies]
+ruff = "~=0.15.0"
+pre-commit = "~=4.0.1"
+mypy = "~=1.13.0"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I"]
+
+[tool.ruff.format]
+quote-style = "single"

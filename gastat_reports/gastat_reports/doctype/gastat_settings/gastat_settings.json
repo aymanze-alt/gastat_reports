@@ -1,0 +1,155 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-08-27 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_settings_general",
+  "company",
+  "default_currency",
+  "production_source",
+  "production_price_source",
+  "salary_component_for_total",
+  "section_production_items",
+  "item_groups_help",
+  "production_item_groups",
+  "production_items",
+  "section_letterhead",
+  "report_header_logo",
+  "report_footer_text",
+  "section_signatory",
+  "authorized_signatory_name",
+  "authorized_signatory_title"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_settings_general",
+   "fieldtype": "Section Break",
+   "label": "General Report Settings"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "default_currency",
+   "fieldtype": "Link",
+   "label": "Default Currency (auto)",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "production_source",
+   "fieldtype": "Select",
+   "label": "Production Data Source",
+   "options": "Sales Orders",
+   "default": "Sales Orders",
+   "reqd": 1
+  },
+  {
+   "fieldname": "production_price_source",
+   "fieldtype": "Select",
+   "label": "Production Price Source",
+   "options": "Standard Selling Rate\nValuation Rate\nLast Purchase Rate\nSales Order Rate",
+   "default": "Sales Order Rate",
+   "reqd": 1
+  },
+  {
+   "fieldname": "salary_component_for_total",
+   "fieldtype": "Select",
+   "label": "Salary Component For Total",
+   "options": "Net Pay\nGross Pay\nTotal Earnings",
+   "reqd": 1,
+   "default": "Net Pay"
+  },
+  {
+   "fieldname": "section_production_items",
+   "fieldtype": "Section Break",
+   "label": "Production Inclusion Rules"
+  },
+  {
+   "fieldname": "item_groups_help",
+   "fieldtype": "HTML",
+   "options": "<div class=\"alert alert-info\" style=\"margin-bottom:8px;\">Select which <b>Item Groups</b> and/or individual <b>Items</b> are counted in the Industrial Production Survey. Items such as installation / delivery / maintenance are typically <b>excluded</b> from production statistics.</div>"
+  },
+  {
+   "fieldname": "production_item_groups",
+   "fieldtype": "Table",
+   "label": "Included Item Groups",
+   "options": "GASTAT Production Item Group"
+  },
+  {
+   "fieldname": "production_items",
+   "fieldtype": "Table",
+   "label": "Included Items (optional, fine-grained control)",
+   "options": "GASTAT Production Item"
+  },
+  {
+   "fieldname": "section_letterhead",
+   "fieldtype": "Section Break",
+   "label": "Report Letterhead & Footer"
+  },
+  {
+   "fieldname": "report_header_logo",
+   "fieldtype": "Attach Image",
+   "label": "Report Header Logo"
+  },
+  {
+   "fieldname": "report_footer_text",
+   "fieldtype": "Small Text",
+   "label": "Report Footer Text"
+  },
+  {
+   "fieldname": "section_signatory",
+   "fieldtype": "Section Break",
+   "label": "Authorized Signatory"
+  },
+  {
+   "fieldname": "authorized_signatory_name",
+   "fieldtype": "Data",
+   "label": "Authorized Signatory Name"
+  },
+  {
+   "fieldname": "authorized_signatory_title",
+   "fieldtype": "Data",
+   "label": "Authorized Signatory Title"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-27 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "GASTAT Reports",
+ "name": "GASTAT Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
