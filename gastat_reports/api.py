@@ -70,6 +70,41 @@ def _format_number(value, currency=None):
 	return f"{flt(value):,.2f}"
 
 
+def get_company_options(transaction_tables=None):
+	"""De-duplicated list of companies for the report filter dropdowns.
+
+	Order: the company configured in GASTAT Settings (always first / default),
+	then companies with submitted transactional data, then every company
+	defined in the Company master. Guarantees a non-empty list on a fresh site
+	as long as a settings company or a Company record exists.
+	"""
+	settings_company = frappe.db.get_single_value("GASTAT Settings", "company") or ""
+	seen = set()
+	ordered = []
+
+	def add(company):
+		company = (company or "").strip()
+		if company and company not in seen:
+			seen.add(company)
+			ordered.append(company)
+
+	add(settings_company)
+
+	for table in transaction_tables or ["Sales Order"]:
+		for (company,) in frappe.db.sql(
+			f"SELECT DISTINCT company FROM `tab{table}` WHERE docstatus = 1 ORDER BY company",
+			as_list=True,
+		):
+			add(company)
+
+	for (company,) in frappe.db.sql(
+		"SELECT name FROM `tabCompany` ORDER BY `tabCompany`.name", as_list=True
+	):
+		add(company)
+
+	return [[company] for company in ordered]
+
+
 def _log_report(report_type, month_no, year, company, file_url):
 	"""Create an audit log entry for a generated report."""
 	month_name = MONTHS_EN[month_no - 1]
@@ -114,29 +149,43 @@ def get_production_report(company=None, month=0, year=0):
 	)
 	if not company:
 		frappe.throw(_("Please select a company."))
-	if frappe.db.get_value("Sales Order", {"company": company, "docstatus": 1}, "name") is None:
-		if not frappe.db.exists("Sales Order", {"company": company}):
-			frappe.throw(_("No Sales Orders found for this company. Please verify the company."))
 
 	start_date, end_date = month_range(month_no, year)
 	included_groups, included_items, hs_map = _inclusion_rules(settings)
 	price_source = settings.production_price_source or "Standard Selling Rate"
+	source = settings.production_source or "Sales Orders"
 
-	# Fetch submitted Sales Order items within the period
+	# Pick the source document (Sales Order / Sales Invoice) for production data.
+	if source == "Sales Invoices":
+		doc_table = "`tabSales Invoice`"
+		item_table = "`tabSales Invoice Item`"
+		date_col = "posting_date"
+	else:
+		source = "Sales Orders"
+		doc_table = "`tabSales Order`"
+		item_table = "`tabSales Order Item`"
+		date_col = "transaction_date"
+
+	# Returns (credit notes) only exist for Sales Invoices; keep them off the item
+	# rows and report them separately as a deduction line.
+	returns_filter = "AND so.is_return = 0" if source == "Sales Invoices" else ""
+
+	# Fetch submitted items of the selected source document within the period.
 	so_items = frappe.db.sql(
-		"""
+		f"""
 		SELECT
 			soi.item_code,
 			soi.item_name,
 			soi.item_group,
 			soi.uom,
 			SUM(soi.qty) AS total_qty,
-			SUM(soi.base_amount) AS total_amount,
+			SUM(soi.base_net_amount) AS total_amount,
 			SUM(soi.base_rate * soi.qty) AS rate_x_qty
-		FROM `tabSales Order Item` AS soi
-		INNER JOIN `tabSales Order` AS so ON so.name = soi.parent
+		FROM {item_table} AS soi
+		INNER JOIN {doc_table} AS so ON so.name = soi.parent
 		WHERE so.docstatus = 1
-			AND so.transaction_date BETWEEN %(start)s AND %(end)s
+			{returns_filter}
+			AND so.{date_col} BETWEEN %(start)s AND %(end)s
 			AND so.company = %(company)s
 		GROUP BY soi.item_code, soi.item_name, soi.item_group, soi.uom
 		ORDER BY total_amount DESC
@@ -160,6 +209,34 @@ def get_production_report(company=None, month=0, year=0):
 		)
 		item_meta = {r["name"]: r for r in rows}
 
+	# Aggregate returned sales invoice items (credit notes) as a single deduction,
+	# respecting the same inclusion rules as the item rows.
+	returns_qty = 0.0
+	returns_value = 0.0
+	if source == "Sales Invoices":
+		ret_rows = frappe.db.sql(
+			f"""
+			SELECT
+				soi.item_code,
+				soi.item_group,
+				SUM(soi.qty) AS ret_qty,
+				SUM(soi.base_net_amount) AS ret_amount
+			FROM `tabSales Invoice Item` AS soi
+			INNER JOIN `tabSales Invoice` AS so ON so.name = soi.parent
+			WHERE so.docstatus = 1
+				AND so.is_return = 1
+				AND so.posting_date BETWEEN %(start)s AND %(end)s
+				AND so.company = %(company)s
+			GROUP BY soi.item_code, soi.item_group
+			""",
+			{"start": start_date, "end": end_date, "company": company},
+			as_dict=True,
+		)
+		for rr in ret_rows:
+			if _item_passes(rr.item_group, rr.item_code, included_groups, included_items):
+				returns_qty += flt(rr.ret_qty)
+				returns_value += flt(rr.ret_amount)
+
 	rows = []
 	grand_qty = 0.0
 	grand_value = 0.0
@@ -169,13 +246,14 @@ def get_production_report(company=None, month=0, year=0):
 		meta = item_meta.get(r.item_code, {})
 
 		if price_source == "Sales Order Rate":
-			unit_price = flt(r.total_amount) / flt(r.total_qty) if flt(r.total_qty) else 0
+			total_value = flt(r.total_amount)
+			unit_price = total_value / flt(r.total_qty) if flt(r.total_qty) else 0
 		elif meta.get("price") is not None:
 			unit_price = flt(meta.get("price"))
+			total_value = flt(r.total_qty) * unit_price
 		else:
 			unit_price = 0
-
-		total_value = flt(r.total_qty) * flt(unit_price)
+			total_value = 0
 		grand_qty += flt(r.total_qty)
 		grand_value += flt(total_value)
 
@@ -197,14 +275,21 @@ def get_production_report(company=None, month=0, year=0):
 	for i, r in enumerate(rows, start=1):
 		r["sr"] = i
 
+	net_qty = flt(grand_qty) + flt(returns_qty)
+	net_value = flt(grand_value) + flt(returns_value)
+
 	summary = {
 		"total_items": len(rows),
-		"total_qty": flt(grand_qty),
-		"avg_unit_price": flt(grand_value) / flt(grand_qty) if flt(grand_qty) else 0,
-		"total_value": flt(grand_value),
+		"total_qty": flt(net_qty),
+		"avg_unit_price": flt(net_value) / flt(net_qty) if flt(net_qty) else 0,
+		"total_value": flt(net_value),
+		"gross_value": flt(grand_value),
+		"returns_value": flt(returns_value),
+		"returns_qty": flt(returns_qty),
 		"currency": currency,
 
 		"price_source": price_source,
+		"production_source": source,
 		"month": month_no,
 		"month_name_ar": get_month_name_ar(month_no, year),
 		"year": year,

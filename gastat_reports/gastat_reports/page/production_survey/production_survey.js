@@ -105,15 +105,18 @@ function init_production_survey(page, $page) {
 		// cards
 		var cards = [
 			{ c: "c-blue", icon: "package", label: "عدد الأصناف المنتجة", value: gastat.formatNumber(s.total_items) },
-			{ c: "c-green", icon: "layers", label: "إجمالي الكمية", value: gastat.formatNumber(s.total_qty) },
+			{ c: "c-green", icon: "layers", label: "إجمالي الكمية (الصافي)", value: gastat.formatNumber(s.total_qty) },
 			{ c: "c-orange", icon: "speed", label: "متوسط سعر الوحدة", value: gastat.formatNumber(s.avg_unit_price, s.currency) },
-			{ c: "c-purple", icon: "currency", label: "إجمالي قيمة الإنتاج", value: gastat.formatNumber(s.total_value, s.currency) }
+			{ c: "c-purple", icon: "currency", label: "إجمالي قيمة الإنتاج (الصافي)", value: gastat.formatNumber(s.total_value, s.currency) }
 		];
+		if (s.returns_value) {
+			cards.push({ c: "c-rose", icon: "arrow-down", label: "خصم المرتجعات", value: gastat.formatNumber(s.returns_value, s.currency) });
+		}
 		$page.find("#prod-cards").html(
 			cards.map(function (c) {
 				return '<div class="gstat-card ' + c.c + '"><div class="icon">' + gastat.icons[c.icon] + '</div>' +
 					'<div><div class="c-label">' + c.label + '</div><div class="c-value">' + c.value + '</div>' +
-					'<div class="c-sub">مصدر الأسعار: ' + gastat.esc(s.price_source) + '</div></div></div>';
+					'<div class="c-sub">مصدر البيانات: ' + gastat.esc(s.production_source || "-") + ' | مصدر الأسعار: ' + gastat.esc(s.price_source) + '</div></div></div>';
 			}).join("")
 		);
 
@@ -147,6 +150,14 @@ function init_production_survey(page, $page) {
 
 		var totalQty = d.rows.reduce(function (a, r) { return a + r.qty; }, 0);
 		var totalVal = d.rows.reduce(function (a, r) { return a + r.total_value; }, 0);
+		var retQty = s.returns_qty || 0;
+		var retVal = s.returns_value || 0;
+		var retRow = (retVal !== 0) ?
+			"<tr style='background:#fff7ed;color:#c2410c;font-weight:600'>" +
+			"<td colspan='4'>خصم المرتجعات / Less: Returns</td><td class='num'>" + gastat.formatNumber(retQty) + "</td><td></td><td></td>" +
+			"<td class='num'>" + gastat.formatNumber(retVal, s.currency) + "</td></tr>" : "";
+		var netRow = "<tr class='total-row'><td colspan='4'>الصافي / Net Total</td><td class='num'>" + gastat.formatNumber(s.total_qty) + "</td><td></td><td></td>" +
+			"<td class='num'>" + gastat.formatNumber(s.total_value, s.currency) + "</td></tr>";
 
 		$page.find("#prod-table").html(
 			'<div class="table-header"><h3>تفاصيل الإنتاج حسب الصنف</h3><span class="count-pill">' + d.rows.length + " صنف</span></div>" +
@@ -156,8 +167,10 @@ function init_production_survey(page, $page) {
 			"<th>#</th><th>كود الصنف</th><th>اسم الصنف</th><th>رمز HS</th><th>الكمية المنتجة</th><th>وحدة القياس</th><th>سعر الوحدة</th><th>القيمة الإجمالية</th>" +
 			"</tr></thead><tbody>" +
 			rowsHtml +
-			"<tr class='total-row'><td colspan='4'>الإجمالي / Grand Total</td><td class='num'>" + gastat.formatNumber(totalQty) + "</td><td></td><td></td>" +
+			"<tr class='total-row'><td colspan='4'>إجمالي المبيعات / Gross Total</td><td class='num'>" + gastat.formatNumber(totalQty) + "</td><td></td><td></td>" +
 			"<td class='num'>" + gastat.formatNumber(totalVal, s.currency) + "</td></tr>" +
+			retRow +
+			netRow +
 			"</tbody></table></div>"
 		);
 

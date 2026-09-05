@@ -245,12 +245,15 @@ def production_html(data):
 	meta = _header_meta(summary)
 
 	# summary cards
+	ret_card = f"""
+        <div class="card"><div class="k">خصم المرتجعات</div><div class="v">{_monetary(summary.get('returns_value', 0.0))} {summary.get('currency','')}</div></div>""" if flt(summary.get("returns_value", 0.0)) else ""
 	cards = f"""
     <div class="summary-box">
         <div class="card"><div class="k">عدد الأصناف المنتجة</div><div class="v">{summary['total_items']}</div></div>
         <div class="card"><div class="k">إجمالي الكمية</div><div class="v">{_monetary(summary['total_qty'])}</div></div>
         <div class="card"><div class="k">متوسط سعر الوحدة</div><div class="v">{_monetary(summary['avg_unit_price'])}</div></div>
-        <div class="card"><div class="k">إجمالي قيمة الإنتاج</div><div class="v">{_monetary(summary['total_value'])} {summary.get('currency','')}</div></div>
+        <div class="card"><div class="k">إجمالي قيمة الإنتاج (الصافي)</div><div class="v">{_monetary(summary['total_value'])} {summary.get('currency','')}</div></div>
+        {ret_card}
     </div>
     """
 
@@ -269,6 +272,20 @@ def production_html(data):
         </tr>"""
 	grand_qty = sum(r['qty'] for r in rows)
 	grand_val = sum(r['total_value'] for r in rows)
+	ret_qty = flt(summary.get('returns_qty', 0.0))
+	ret_val = flt(summary.get('returns_value', 0.0))
+	ret_rows = f"""
+        <tr>
+            <td colspan="4" class="r">خصم المرتجعات / Less: Returns</td>
+            <td>{_monetary(ret_qty)}</td><td></td><td></td>
+            <td class="num">{_monetary(ret_val)}</td>
+        </tr>""" if ret_val else ""
+	net_rows = f"""
+        <tr class="total">
+            <td colspan="4">الصافي / Net Total</td>
+            <td>{_monetary(grand_qty + ret_qty)}</td><td></td><td></td>
+            <td class="num">{_monetary(summary['total_value'])} {summary.get('currency','')}</td>
+        </tr>"""
 	table = f"""
     <h2 class="section-title">تفاصيل الإنتاج حسب الصنف</h2>
     <table class="data">
@@ -281,10 +298,12 @@ def production_html(data):
         <tbody>
             {trs}
             <tr class="total">
-                <td colspan="4">الإجمالي / Grand Total</td>
+                <td colspan="4">إجمالي المبيعات / Gross Total</td>
                 <td>{_monetary(grand_qty)}</td><td></td><td></td>
                 <td class="num">{_monetary(grand_val)} {summary.get('currency','')}</td>
             </tr>
+            {ret_rows}
+            {net_rows}
         </tbody>
     </table>
     """
@@ -310,7 +329,7 @@ def production_html(data):
     </div>
     """
 
-	notes = f"<div class='notes'>مصدر الأسعار: {summary.get('price_source','')} | العملة: {summary.get('currency','')} | ملاحظات: {settings.report_footer_text or ''}</div>"
+	notes = f"<div class='notes'>مصدر البيانات: {summary.get('production_source','')} | مصدر الأسعار: {summary.get('price_source','')} | العملة: {summary.get('currency','')} | ملاحظات: {settings.report_footer_text or ''}</div>"
 
 	body = meta + cards + table + notes + signature
 	return _build_html(head, body, settings.report_footer_text, title)
@@ -528,7 +547,7 @@ def export_production_excel(company=None, month=0, year=0, **kwargs):
 
 	title = "تقرير المسح الصناعي الشهري (Industrial Production Survey)"
 	subtitle = (f"{summary['company_name']} | {summary['month_name_ar']} {summary['year']}"
-	            f" | Currency: {summary.get('currency','')} | Price source: {summary.get('price_source','')}")
+	            f" | Data source: {summary.get('production_source','')} | Currency: {summary.get('currency','')} | Price source: {summary.get('price_source','')}")
 	_write_header(ws, title, subtitle, 8, style)
 
 	# summary block
@@ -560,14 +579,27 @@ def export_production_excel(company=None, month=0, year=0, **kwargs):
 			c.border = style["border"]
 			c.alignment = style["right"] if col in (2, 3) else style["center"]
 		r += 1
-	# grand total
-	vals = ["", "", "Grand Total", "", flt(grand_qty), "", "", flt(grand_val)]
-	for col, v in enumerate(vals, start=1):
-		c = ws.cell(row=r, column=col, value=v)
-		c.fill = style["total_fill"]
-		c.font = style["total_font"]
-		c.border = style["border"]
-		c.alignment = style["center"]
+
+	# row writers
+	def _total_row(label, qty, val, fill, font):
+		nonlocal r
+		vals = ["", "", label, "", flt(qty), "", "", flt(val)]
+		for col, v in enumerate(vals, start=1):
+			c = ws.cell(row=r, column=col, value=v)
+			c.fill = fill
+			c.font = font
+			c.border = style["border"]
+			c.alignment = style["center"]
+		r += 1
+
+	_total_row("Gross Total", grand_qty, grand_val, style["total_fill"], style["total_font"])
+	ret_val = flt(summary.get("returns_value", 0.0))
+	if ret_val:
+		ret_fill = PatternFill("solid", fgColor="FFF7ED")
+		ret_font = Font(color="C2410C", bold=True, size=11)
+		_total_row("Less: Returns", flt(summary.get("returns_qty", 0.0)), ret_val, ret_fill, ret_font)
+	_total_row("Net Total", flt(summary["total_qty"]), flt(summary["total_value"]),
+	           style["total_fill"], Font(color="FFFFFF", bold=True, size=12))
 
 	_autofit(ws, [8, 14, 30, 14, 16, 10, 14, 16])
 	ws.freeze_panes = f"A{srow+2}"

@@ -42,14 +42,15 @@
    "options": "Currency",
    "read_only": 1
   },
-  {
-   "fieldname": "production_source",
-   "fieldtype": "Select",
-   "label": "Production Data Source",
-   "options": "Sales Orders",
-   "default": "Sales Orders",
-   "reqd": 1
-  },
+{
+    "fieldname": "production_source",
+    "fieldtype": "Select",
+    "label": "Production Data Source",
+    "options": "Sales Orders\nSales Invoices",
+    "default": "Sales Orders",
+    "reqd": 1,
+    "help": "Choose the source document for production quantities: submitted Sales Orders or posted (submitted) Sales Invoices."
+   },
   {
    "fieldname": "production_price_source",
    "fieldtype": "Select",

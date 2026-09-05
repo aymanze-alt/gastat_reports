@@ -1,0 +1,28 @@
+{
+ "custom_fields": [
+  {
+   "dt": "Employee",
+   "fieldname": "custom_id_number",
+   "fieldtype": "Data",
+   "label": "ID Number",
+   "reqd": 1,
+   "insert_after": "custom_id_expiration_date",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "dt": "Employee",
+   "fieldname": "custom_nationality",
+   "fieldtype": "Select",
+   "label": "Nationality",
+   "reqd": 1,
+   "insert_after": "custom_employee_status",
+   "options": "السعودية\nلبنان\nالسودان\nفلسطين\nاليمن\nكندا\nمصر\nاريتيريا\nالهند\nالفلبين\nسوريا\nبنجلادش\nالاردن\nالصومال\nباكستان\nتشاد\nنيبال\nسري لانكا\nاثيوبيا\nكينية\nتونس\nنيجيريا"
+  }
+ ],
+ "property_setters": [],
+ "custom_perms": [],
+ "links": [],
+ "doctype": "Employee",
+ "sync_on_migrate": true
+}

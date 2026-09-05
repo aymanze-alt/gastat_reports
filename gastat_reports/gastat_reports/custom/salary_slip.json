@@ -1,0 +1,17 @@
+{
+ "custom_fields": [
+  {
+   "dt": "Salary Slip",
+   "fieldname": "custom_total",
+   "fieldtype": "Currency",
+   "label": "Total",
+   "read_only": 1,
+   "insert_after": "custom_column_break_06nk6"
+  }
+ ],
+ "property_setters": [],
+ "custom_perms": [],
+ "links": [],
+ "doctype": "Salary Slip",
+ "sync_on_migrate": true
+}

@@ -3,7 +3,7 @@
 
 import frappe
 
-from gastat_reports.api import get_production_report, get_available_items_options
+from gastat_reports.api import get_production_report, get_available_items_options, get_company_options
 
 
 @frappe.whitelist()
@@ -20,8 +20,5 @@ def get_options():
 
 @frappe.whitelist()
 def get_company_list():
-	"""Companies that have submitted Sales Orders."""
-	return frappe.db.sql(
-		"SELECT DISTINCT company FROM `tabSales Order` WHERE docstatus = 1 ORDER BY company",
-		as_list=True,
-	)
+	"""Companies for the production survey filter (settings-first, non-empty)."""
+	return get_company_options(["Sales Order"])

@@ -3,7 +3,7 @@
 
 import frappe
 
-from gastat_reports.api import get_employee_statistics
+from gastat_reports.api import get_employee_statistics, get_company_options
 
 
 @frappe.whitelist()
@@ -14,8 +14,5 @@ def get_report(company=None, month=0, year=0):
 
 @frappe.whitelist()
 def get_company_list():
-	"""Companies that have payroll (Salary Slip) data."""
-	return frappe.db.sql(
-		"SELECT DISTINCT company FROM `tabSalary Slip` WHERE docstatus = 1 ORDER BY company",
-		as_list=True,
-	)
+	"""Companies for the employee statistics filter (settings-first, non-empty)."""
+	return get_company_options(["Salary Slip"])
