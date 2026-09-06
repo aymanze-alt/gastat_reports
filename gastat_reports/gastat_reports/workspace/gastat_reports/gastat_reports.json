@@ -10,52 +10,8 @@
  "idx": 0,
  "is_hidden": 0,
  "label": "تقارير وزارة الصناعة",
- "links": [
-  {
-   "dependencies": "",
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Production Survey",
-   "link_count": 0,
-   "link_to": "production-survey",
-   "link_type": "Page",
-   "onboard": 0,
-   "type": "Shortcut"
-  },
-  {
-   "dependencies": "",
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Employee Statistics",
-   "link_count": 0,
-   "link_to": "employee-statistics",
-   "link_type": "Page",
-   "onboard": 0,
-   "type": "Shortcut"
-  },
-  {
-   "dependencies": "",
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "GASTAT Settings",
-   "link_count": 0,
-   "link_to": "GASTAT Settings",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Shortcut"
-  },
-  {
-   "dependencies": "",
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Report Log",
-   "link_count": 0,
-   "link_to": "GASTAT Monthly Report Log",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Shortcut"
-  },
-  {
+"links": [
+   {
    "dependencies": "",
    "hidden": 0,
    "is_query_report": 0,
