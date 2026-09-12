@@ -334,7 +334,7 @@ def get_production_config_options():
 # ----------------------------------------------------------------------------
 
 @frappe.whitelist()
-def get_employee_statistics(company=None, month=0, year=0):
+def get_employee_statistics(company=None, month=0, year=0, sort_by=None, sort_order=None):
 	company, month_no, year, currency, settings = _standardize_params(
 		{"company": company, "month": month, "year": year}
 	)
@@ -355,12 +355,23 @@ def get_employee_statistics(company=None, month=0, year=0):
 	slips = frappe.db.sql(
 		"""
 		SELECT
+			ss.name AS slip_name,
 			ss.employee,
 			ss.employee_name,
 			ss.posting_date,
 			emp.gender,
 			emp.custom_nationality,
 			emp.custom_id_number,
+			COALESCE(ss.designation, emp.designation, '') AS designation,
+			ss.company,
+			COALESCE(ss.payment_days, 0) AS payment_days,
+			COALESCE(ss.custom_payable_days, 0) AS payable_days,
+			COALESCE(ss.total_working_days, 0) AS working_days,
+			COALESCE(ss.custom_base, 0) AS basic,
+			COALESCE(ss.custom_housing, 0) AS housing,
+			COALESCE(ss.custom_transportation, 0) AS transportation,
+			COALESCE(ss.custom_variable, 0) AS allowances,
+			COALESCE(ss.net_pay, 0) AS total_transferred,
 			{salary_expr} AS month_salary
 		FROM `tabSalary Slip` AS ss
 		LEFT JOIN `tabEmployee` AS emp ON emp.name = ss.employee
@@ -372,6 +383,37 @@ def get_employee_statistics(company=None, month=0, year=0):
 		{"company": company, "start": start_date, "end": end_date},
 		as_dict=True,
 	)
+
+	# Aggregate the earnings detail of the same slips so the salary breakdown can
+	# be rebuilt when the custom breakdown fields are empty. Components are grouped
+	# by their Arabic keyword; the residual (everything else) is the allowances.
+	detail_rows = frappe.db.sql(
+		"""
+		SELECT
+			sd.parent,
+			SUM(sd.amount) AS sum_amount,
+			SUM(CASE WHEN sd.salary_component LIKE '%%اساسي%%' THEN sd.amount ELSE 0 END) AS basic,
+			SUM(CASE WHEN sd.salary_component LIKE '%%سكن%%' THEN sd.amount ELSE 0 END) AS housing,
+			SUM(CASE WHEN sd.salary_component LIKE '%%مواصلات%%' THEN sd.amount ELSE 0 END) AS transportation
+		FROM `tabSalary Detail` AS sd
+		INNER JOIN `tabSalary Slip` AS ss ON ss.name = sd.parent
+		WHERE ss.docstatus = 1
+			AND ss.company = %(company)s
+			AND ss.start_date BETWEEN %(start)s AND %(end)s
+			AND sd.parentfield = 'earnings'
+		GROUP BY sd.parent
+		""",
+		{"company": company, "start": start_date, "end": end_date},
+		as_dict=True,
+	)
+	detail_map = {}
+	for dr in detail_rows:
+		detail_map[dr["parent"]] = {
+			"sum": flt(dr["sum_amount"]),
+			"basic": flt(dr["basic"]),
+			"housing": flt(dr["housing"]),
+			"transportation": flt(dr["transportation"]),
+		}
 
 	# Keep the latest slip per employee
 	seen = {}
@@ -390,6 +432,11 @@ def get_employee_statistics(company=None, month=0, year=0):
 		"nonsaudi_female": 0,
 		"saudi_salaries": 0.0,
 		"nonsaudi_salaries": 0.0,
+		"total_basic": 0.0,
+		"total_housing": 0.0,
+		"total_transportation": 0.0,
+		"total_allowances": 0.0,
+		"total_transferred": 0.0,
 	}
 
 	for s in ordered:
@@ -398,6 +445,33 @@ def get_employee_statistics(company=None, month=0, year=0):
 		gender = (s.gender or "").strip()
 		monthly_salary = flt(s.month_salary)
 
+		basic = flt(s.basic)
+		housing = flt(s.housing)
+		transportation = flt(s.transportation)
+		allowances = flt(s.allowances)
+
+		# If the custom breakdown fields are empty, rebuild the breakdown from the
+		# earnings detail of the same slip, scaled to the report's total salary so the
+		# component columns always reconcile with اجمالي الراتب.
+		if not (basic or housing or transportation or allowances):
+			det = detail_map.get(s.slip_name)
+			if det and flt(det["sum"]) > 0:
+				scale = monthly_salary / flt(det["sum"]) if monthly_salary else 1.0
+				basic = flt(det["basic"]) * scale
+				housing = flt(det["housing"]) * scale
+				transportation = flt(det["transportation"]) * scale
+				residual = flt(det["sum"]) - flt(det["basic"]) - flt(det["housing"]) - flt(det["transportation"])
+				allowances = max(residual, 0) * scale
+
+		# Work days: prefer payment_days, then the custom payable days, then working days.
+		payment_days = flt(s.payment_days) or flt(s.payable_days) or flt(s.working_days)
+
+		stats["total_basic"] += basic
+		stats["total_housing"] += housing
+		stats["total_transportation"] += transportation
+		stats["total_allowances"] += allowances
+		stats["total_transferred"] += flt(s.total_transferred)
+
 		row = {
 			"employee": s.employee,
 			"employee_name": s.employee_name or s.employee,
@@ -405,7 +479,15 @@ def get_employee_statistics(company=None, month=0, year=0):
 			"nationality": nationality,
 			"gender": gender,
 			"category": "سعودي" if is_saudi else "غير سعودي",
+			"designation": s.designation or "",
+			"company": s.company or "",
+			"payment_days": payment_days,
+			"basic": basic,
+			"housing": housing,
+			"transportation": transportation,
+			"allowances": allowances,
 			"monthly_salary": monthly_salary,
+			"total_transferred": flt(s.total_transferred),
 		}
 
 		if is_saudi:
@@ -423,9 +505,12 @@ def get_employee_statistics(company=None, month=0, year=0):
 			else:
 				stats["nonsaudi_male"] += 1
 
-	saudi_rows.sort(key=lambda x: (x["employee_name"] or ""))
-	nonsaudi_rows.sort(key=lambda x: (x["employee_name"] or ""))
+	saudi_rows.sort(key=lambda x: (x["employee"] or "") or "")
+	nonsaudi_rows.sort(key=lambda x: (x["employee"] or "") or "")
 	total_rows = saudi_rows + nonsaudi_rows
+
+	# Apply the requested sort; default to رقم الموظف (employee) ascending.
+	_sort_employee_rows(total_rows, sort_by=sort_by, sort_order=sort_order)
 
 	total_employees = stats["saudi_male"] + stats["saudi_female"] + stats["nonsaudi_male"] + stats["nonsaudi_female"]
 	total_salaries = stats["saudi_salaries"] + stats["nonsaudi_salaries"]
@@ -448,6 +533,11 @@ def get_employee_statistics(company=None, month=0, year=0):
 		"saudi_salaries": stats["saudi_salaries"],
 		"nonsaudi_salaries": stats["nonsaudi_salaries"],
 		"total_salaries": total_salaries,
+		"total_basic": stats["total_basic"],
+		"total_housing": stats["total_housing"],
+		"total_transportation": stats["total_transportation"],
+		"total_allowances": stats["total_allowances"],
+		"total_transferred": stats["total_transferred"],
 		"salary_col": settings.salary_component_for_total,
 		"currency": currency,
 		"month": month_no,
@@ -506,6 +596,28 @@ def _employees_signature_block(settings):
 # ----------------------------------------------------------------------------
 # Export wrappers (page JS calls gastat_reports.api.<method>)
 # ----------------------------------------------------------------------------
+
+# Keys that can be used for sorting the employee detail rows + numeric fields.
+EMPLOYEE_SORTABLE_KEYS = {
+	"employee", "national_id", "employee_name", "designation", "company",
+	"payment_days", "basic", "housing", "transportation", "allowances",
+	"monthly_salary", "total_transferred",
+}
+EMPLOYEE_NUMERIC_SORT = {
+	"payment_days", "basic", "housing", "transportation", "allowances",
+	"monthly_salary", "total_transferred",
+}
+
+
+def _sort_employee_rows(rows, sort_by=None, sort_order=None):
+	"""Sort employee rows by a column key in-place (default رقم الموظف)."""
+	key = sort_by if sort_by in EMPLOYEE_SORTABLE_KEYS else "employee"
+	reverse = str(sort_order or "").lower() in ("desc", "descending", "1", "true")
+	if key in EMPLOYEE_NUMERIC_SORT:
+		rows.sort(key=lambda x: flt(x.get(key)), reverse=reverse)
+	else:
+		rows.sort(key=lambda x: (x.get(key) or "").lower(), reverse=reverse)
+	return rows
 
 @frappe.whitelist()
 def export_production_pdf(company=None, month=0, year=0, **kwargs):

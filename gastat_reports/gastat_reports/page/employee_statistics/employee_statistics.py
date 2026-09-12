@@ -7,9 +7,10 @@ from gastat_reports.api import get_employee_statistics, get_company_options
 
 
 @frappe.whitelist()
-def get_report(company=None, month=0, year=0):
+def get_report(company=None, month=0, year=0, sort_by=None, sort_order=None, columns=None):
 	"""Data endpoint for the employee statistics page."""
-	return get_employee_statistics(company=company, month=month or 0, year=year or 0)
+	return get_employee_statistics(company=company, month=month or 0, year=year or 0,
+	                               sort_by=sort_by, sort_order=sort_order)
 
 
 @frappe.whitelist()

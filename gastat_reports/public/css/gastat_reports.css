@@ -261,6 +261,27 @@
 .gastat-table-resp::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9px; }
 .gastat-table-resp::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+/* ---------- Table controls (columns + sorting) ---------- */
+.gastat-table-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; margin: 18px 0 10px; padding: 14px 16px; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 1px 3px rgba(15, 118, 110, 0.06); }
+.gastat-table-controls .ctl-group { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.gastat-table-controls .ctl-group label { font-weight: 700; color: #0f766e; font-size: 13px; }
+.ctl-cols { display: flex; flex-wrap: wrap; gap: 6px; }
+.ctl-cols label { display: inline-flex; align-items: center; gap: 5px; font-weight: 500 !important; color: #334155 !important; font-size: 12px !important; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 4px 9px; border-radius: 999px; cursor: pointer; user-select: none; }
+.ctl-cols label:hover { border-color: #0f766e; }
+.ctl-cols label input { accent-color: #0f766e; }
+.gastat-table-controls .ctl-sort select { padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: #fff; color: #1e293b; }
+.ctl-collapsible { position: relative; }
+.ctl-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; background: #fff; color: #0f766e; font-weight: 700; font-size: 13px; border: 1px solid #0f766e; border-radius: 999px; cursor: pointer; user-select: none; }
+.ctl-toggle:hover { background: #0f766e; color: #fff; }
+.ctl-chevron { font-size: 11px; }
+.ctl-cols-wrap {
+	position: absolute; top: calc(100% + 8px); right: 0; z-index: 50;
+	background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+	padding: 14px; box-shadow: 0 8px 24px rgba(15, 118, 110, 0.12);
+	max-width: 420px;
+}
+.ctl-cols-wrap .ctl-cols { max-width: 100%; }
+
 @media (max-width: 700px) {
 	.gastat-page { padding: 16px 14px; }
 	.gastat-header { padding: 20px; }

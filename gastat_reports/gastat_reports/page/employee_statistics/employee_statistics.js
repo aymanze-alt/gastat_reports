@@ -12,6 +12,43 @@ function init_employee_statistics(page, $page) {
 	var state = { data: null, last: {} };
 	var months = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 
+	var EMPLOYEE_COLUMNS = [
+		{ key: "employee", label: "رقم الموظف", type: "text" },
+		{ key: "national_id", label: "رقم الهوية", type: "text" },
+		{ key: "employee_name", label: "اسم الموظف", type: "text" },
+		{ key: "designation", label: "المسمى الوظيفي", type: "text" },
+		{ key: "company", label: "الشركة", type: "text" },
+		{ key: "payment_days", label: "ايام العمل", type: "num" },
+		{ key: "basic", label: "الاساسي", type: "money" },
+		{ key: "housing", label: "بدل السكن", type: "money" },
+		{ key: "transportation", label: "بدل المواصلات", type: "money" },
+		{ key: "allowances", label: "البدلات", type: "money" },
+		{ key: "monthly_salary", label: "اجمالي الراتب", type: "money" },
+		{ key: "total_transferred", label: "اجمالي الراتب المحول", type: "money" }
+	];
+	var SUMMARY_TOTAL_KEY = {
+		basic: "total_basic", housing: "total_housing", transportation: "total_transportation",
+		allowances: "total_allowances", monthly_salary: "total_salaries", total_transferred: "total_transferred"
+	};
+	var selectedCols = EMPLOYEE_COLUMNS.map(function (c) { return c.key; });
+
+	// Build the column checkboxes + sort dropdown
+	$page.find("#emp-cols").html(EMPLOYEE_COLUMNS.map(function (c) {
+		return '<label class="ctl-col"><input type="checkbox" data-key="' + c.key + '" checked>' + c.label + "</label>";
+	}).join(""));
+	$page.find("#emp-cols-toggle").on("click", function () {
+		var wrap = $page.find("#emp-cols-wrap");
+		var open = wrap.is(":visible");
+		wrap.toggle(!open);
+		$page.find("#emp-cols-toggle .ctl-chevron").text(open ? "▾" : "▴");
+	});
+	$page.find("#emp-cols input").on("change", function () {
+		selectedCols = $page.find("#emp-cols input:checked").map(function () { return $(this).data("key"); }).get();
+		state.last.columns = JSON.stringify(selectedCols);
+		if (state.data) { refreshTable(state.data); }
+	});
+	renderSelect($page.find("#emp-sort"), EMPLOYEE_COLUMNS.map(function (c) { return { value: c.key, label: c.label }; }), "employee");
+
 	function renderSelect($el, items, selected) { $el.empty(); items.forEach(function (it) { $el.append($("<option>").val(it.value).text(it.label)); }); $el.val(selected); }
 
 	var now = new Date();
@@ -31,7 +68,14 @@ function init_employee_statistics(page, $page) {
 	});
 
 	function currentParams() {
-		return { company: $page.find("#emp-company").val(), month: $page.find("#emp-month").val(), year: $page.find("#emp-year").val() };
+		return {
+			company: $page.find("#emp-company").val(),
+			month: $page.find("#emp-month").val(),
+			year: $page.find("#emp-year").val(),
+			sort_by: $page.find("#emp-sort").val(),
+			sort_order: $page.find("#emp-sort-dir").val(),
+			columns: JSON.stringify(selectedCols)
+		};
 	}
 
 	function generate() {
@@ -58,18 +102,61 @@ function init_employee_statistics(page, $page) {
 	$page.find("#emp-generate").on("click", generate);
 	$page.find("#emp-pdf").on("click", function () { doExport("pdf"); });
 	$page.find("#emp-xls").on("click", function () { doExport("xls"); });
+	$page.find("#emp-sort, #emp-sort-dir").on("change", function () { if (state.data) generate(); });
 
 	function doExport(kind) {
 		var p = state.last;
 		frappe.call({
 			method: kind === "pdf" ? "gastat_reports.api.export_employee_pdf" : "gastat_reports.api.export_employee_excel",
-			args: { company: p.company || "", month: p.month, year: p.year },
+			args: p,
 			callback: function (r) {
 				if (r && r.exc) { frappe.msgprint({ message: extractError(r), indicator: "red", title: "خطأ" }); return; }
 				gastat.download(r.message);
 				frappe.show_alert({ message: "تم تصدير التقرير بنجاح", indicator: "green" });
 			}
 		});
+	}
+
+	function refreshTable(d) {
+		var s = d.summary;
+		var activeCols = EMPLOYEE_COLUMNS.filter(function (c) { return selectedCols.indexOf(c.key) !== -1; });
+		var headers = ["الرقم"].concat(activeCols.map(function (c) { return c.label; }));
+
+		var rowsHtml = d.total_rows.map(function (x, i) {
+			var cells = "<td>" + (i + 1) + "</td>";
+			activeCols.forEach(function (c) {
+				var v = x[c.key];
+				if (c.type === "money") {
+					cells += "<td class='num'>" + gastat.formatNumber(v) + "</td>";
+				} else if (c.type === "num") {
+					cells += "<td class='num'>" + gastat.formatNumber(v) + "</td>";
+				} else {
+					cells += "<td>" + gastat.esc(v || "-") + "</td>";
+				}
+			});
+			return "<tr>" + cells + "</tr>";
+		}).join("");
+
+		var moneyCols = activeCols.filter(function (c) { return c.type === "money"; });
+		var textCount = activeCols.filter(function (c) { return c.type === "text"; }).length;
+		var hasNum = activeCols.some(function (c) { return c.type === "num"; });
+		var labelSpan = Math.max(1 + textCount, 1);
+		var tail = "";
+		if (hasNum) tail += "<td class='num'></td>";
+		tail += moneyCols.map(function (c) {
+			return "<td class='num'>" + gastat.formatNumber(s[SUMMARY_TOTAL_KEY[c.key]]) + "</td>";
+		}).join("");
+
+		var grandTotal = "<tr class='total-row'>" +
+			"<td colspan='" + labelSpan + "'>الإجمالي الكلي</td>" + tail + "</tr>";
+
+		$page.find("#emp-table").html(
+			'<div class="table-header"><h3>تفاصيل الموظفين</h3><span class="count-pill">' + s.total_employees + " موظف</span></div>" +
+			'<div class="gastat-table-resp">' +
+			'<table class="gastat-table"><thead><tr>' +
+			headers.map(function (h) { return "<th>" + h + "</th>"; }).join("") +
+			"</tr></thead><tbody>" + rowsHtml + grandTotal + "</tbody></table></div>"
+		);
 	}
 
 	function render(d) {
@@ -123,39 +210,7 @@ function init_employee_statistics(page, $page) {
 			makeChart("emp-chart-sal", charts.salary_by_category, "bar");
 		}, 50);
 
-		// table with sections
-		function section(label, rows, cls) {
-			var r = rows.map(function (x, i) {
-				var gender = x.gender === "Female" ? "أنثى" : (x.gender === "Male" ? "ذكر" : "-");
-				var badge = x.category === "سعودي" ? "gstat-badge-green" : "gstat-badge-purple";
-				return "<tr>" +
-					"<td>" + (i + 1) + "</td>" +
-					"<td><b>" + gastat.esc(x.employee) + "</b></td>" +
-					"<td>" + gastat.esc(x.employee_name) + "</td>" +
-					"<td class='num'>" + gastat.esc(x.national_id || "-") + "</td>" +
-					"<td>" + gastat.esc(x.nationality || "-") + "</td>" +
-					"<td>" + gender + "</td>" +
-					'<td><span class="gastat-badge ' + badge + '">' + gastat.esc(x.category) + "</span></td>" +
-					"<td class='num'>" + gastat.formatNumber(x.monthly_salary) + "</td>" +
-					"</tr>";
-			}).join("");
-			var total = rows.reduce(function (a, x) { return a + x.monthly_salary; }, 0);
-			return "<tr class='section-row'><td colspan='8'>" + label + " (" + rows.length + ")</td></tr>" +
-				r +
-				"<tr class='subtotal-row'><td colspan='7'>المجموع الفرعي</td><td class='num'>" + gastat.formatNumber(total, s.currency) + "</td></tr>";
-		}
-
-		var rowsHtml = section("سعوديون / Saudi Employees", d.saudi_rows) +
-			section("غير سعوديين / Non-Saudi Employees", d.nonsaudi_rows) +
-			"<tr class='total-row'><td colspan='7'>الإجمالي الكلي</td><td class='num'>" + gastat.formatNumber(s.total_salaries, s.currency) + "</td></tr>";
-
-		$page.find("#emp-table").html(
-			'<div class="table-header"><h3>تفاصيل الموظفين</h3><span class="count-pill">' + s.total_employees + " موظف</span></div>" +
-			'<div class="gastat-table-resp">' +
-			'<table class="gastat-table"><thead><tr>' +
-			"<th>#</th><th>رقم الموظف</th><th>اسم الموظف</th><th>الهوية / الإقامة</th><th>الجنسية</th><th>الجنس</th><th>الفئة</th><th>الراتب الشهري</th>" +
-			"</tr></thead><tbody>" + rowsHtml + "</tbody></table></div>"
-		);
+		refreshTable(d);
 
 		$page.find("#emp-empty").hide();
 		$page.find("#emp-cards, #emp-charts, #emp-table").show();

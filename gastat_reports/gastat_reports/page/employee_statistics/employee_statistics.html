@@ -55,6 +55,24 @@
 		<div class="spinner"></div> جاري تحميل البيانات...
 	</div>
 
+	<!-- Columns & Sorting -->
+	<div class="gastat-table-controls no-print">
+		<div class="ctl-group ctl-collapsible">
+			<button class="ctl-toggle" id="emp-cols-toggle">الأعمدة / Columns <span class="ctl-chevron">▾</span></button>
+			<div class="ctl-cols-wrap" id="emp-cols-wrap" style="display:none;">
+				<div class="ctl-cols" id="emp-cols"></div>
+			</div>
+		</div>
+		<div class="ctl-group ctl-sort">
+			<label>الترتيب / Sort by</label>
+			<select id="emp-sort"></select>
+			<select id="emp-sort-dir">
+				<option value="asc">تصاعدي (A→Z)</option>
+				<option value="desc">تنازلي (Z→A)</option>
+			</select>
+		</div>
+	</div>
+
 	<!-- Summary Cards -->
 	<div class="gastat-cards" id="emp-cards"></div>
 

@@ -4,7 +4,9 @@
 """PDF and Excel export for GASTAT reports."""
 
 import base64
+import html
 import io
+import json
 import os
 
 import frappe
@@ -66,13 +68,17 @@ h2.section-title {
 
 table.data {
     width: 100%; border-collapse: collapse; font-size: 9pt;
+	table-layout: fixed;
 }
 table.data th {
     background: #0f766e; color: #ffffff; padding: 2.2mm 2mm;
     font-weight: 600; border: 1px solid #0f766e; text-align: center;
+	word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;
 }
 table.data td {
     padding: 2mm 2mm; border: 1px solid #cbd5e1; text-align: center;
+	word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;
+	white-space: normal;
 }
 table.data tbody tr:nth-child(even) { background: #f1f5f9; }
 table.data tbody tr.total td {
@@ -149,7 +155,7 @@ def _monetary(value):
 	return f"{flt(value):,.2f}"
 
 
-def _build_html(letterhead_html, body_html, footer_text, page_title):
+def _build_html(letterhead_html, body_html, footer_text, page_title, extra_css=""):
 	settings = frappe.get_single("GASTAT Settings")
 	return f"""
 <!DOCTYPE html>
@@ -157,7 +163,8 @@ def _build_html(letterhead_html, body_html, footer_text, page_title):
 <head>
 <meta charset="utf-8"/>
 <title>{page_title}</title>
-<style>{CSS}</style>
+<style>{CSS}
+{extra_css}</style>
 </head>
 <body>
 <div class="page">
@@ -216,9 +223,10 @@ def _signature_cells(cell, cell2=None):
 """
 
 
-def _build_pdf(html):
+def _build_pdf(html, orientation="Portrait"):
 	options = {
 		"page-size": "A4",
+		"orientation": orientation,
 		"margin-top": "0mm",
 		"margin-bottom": "0mm",
 		"margin-left": "0mm",
@@ -339,37 +347,194 @@ def production_html(data):
 # Employee HTML
 # ============================================================================
 
-def _salary_table(title, rows, currency, footer_label):
+# Ordered column definitions for the employee detail table. Each column maps to
+# a key present on every employee row produced by get_employee_statistics.
+# `type` values: text / num (work days) / money (currency amounts).
+EMPLOYEE_COLUMNS = [
+	{"key": "employee", "label": "رقم الموظف", "type": "text"},
+	{"key": "national_id", "label": "رقم الهوية", "type": "text"},
+	{"key": "employee_name", "label": "اسم الموظف", "type": "text"},
+	{"key": "designation", "label": "المسمى الوظيفي", "type": "text"},
+	{"key": "company", "label": "الشركة", "type": "text"},
+	{"key": "payment_days", "label": "ايام العمل", "type": "num"},
+	{"key": "basic", "label": "الاساسي", "type": "money"},
+	{"key": "housing", "label": "بدل السكن", "type": "money"},
+	{"key": "transportation", "label": "بدل المواصلات", "type": "money"},
+	{"key": "allowances", "label": "البدلات", "type": "money"},
+	{"key": "monthly_salary", "label": "اجمالي الراتب", "type": "money"},
+	{"key": "total_transferred", "label": "اجمالي الراتب المحول", "type": "money"},
+]
+
+# Summary key that backs each money column (used for the grand-total row).
+SUMMARY_TOTALS = {
+	"basic": "total_basic",
+	"housing": "total_housing",
+	"transportation": "total_transportation",
+	"allowances": "total_allowances",
+	"monthly_salary": "total_salaries",
+	"total_transferred": "total_transferred",
+}
+
+# RC ordering only makes sense for numeric columns.
+_NUMERIC_FLDS = {"payment_days", "basic", "housing", "transportation", "allowances", "monthly_salary", "total_transferred"}
+
+ALL_EMPLOYEE_COLUMN_KEYS = {c["key"] for c in EMPLOYEE_COLUMNS}
+
+# Relative widths for the flat PDF table (used for the <colgroup>). The row # and
+# رقم الموظف columns stay small while the long text columns get more room so the
+# values wrap instead of spilling into neighbouring columns.
+COLUMN_WIDTHS = {
+	"employee": 6,
+	"national_id": 10,
+	"employee_name": 14,
+	"designation": 10,
+	"company": 18,
+	"payment_days": 5,
+	"basic": 6,
+	"housing": 6,
+	"transportation": 6,
+	"allowances": 6,
+	"monthly_salary": 6,
+	"total_transferred": 6,
+}
+ROW_NUM_WIDTH = 7
+
+# Estimated max chars per line per column. wkhtmltopdf's QtWebKit does NOT honour
+# CSS `table-layout: fixed` / `word-wrap`, so long text (e.g. the company name) is
+# broken at word boundaries with real <br> instead.
+TEXT_WRAP_LENGTH = {
+	"employee": 8,
+	"national_id": 12,
+	"employee_name": 22,
+	"designation": 16,
+	"company": 28,
+	"payment_days": 7,
+	"basic": 8,
+	"housing": 8,
+	"transportation": 8,
+	"allowances": 8,
+	"monthly_salary": 8,
+	"total_transferred": 8,
+}
+
+
+def _wrap_text(value, budget):
+	"""Escape text and insert <br> at word boundaries so no line exceeds `budget` chars."""
+	text = frappe.utils.cstr(value)
+	if not text or text == "-":
+		return text or "-"
+	words = text.split()
+	lines, cur = [], ""
+	for w in words:
+		if len(cur) + len(w) + (1 if cur else 0) > budget:
+			if cur:
+				lines.append(cur)
+			cur = w
+		else:
+			cur = (cur + " " + w) if cur else w
+	if cur:
+		lines.append(cur)
+	escaped = "<br>".join(html.escape(l) for l in lines)
+	return escaped
+
+
+def _cal_colgroup(cols):
+	"""Build a <colgroup> with normalized percentages for the given column defs."""
+	widths = [ROW_NUM_WIDTH] + [COLUMN_WIDTHS.get(c["key"], 10) for c in cols]
+	total = sum(widths) or 1
+	return "".join(
+		f'<col style="width:{w * 100.0 / total:.3f}%">' for w in widths
+	)
+
+
+def resolve_employee_columns(columns=None):
+	"""Normalize a list/JSON of column keys (or resolved defs) into ordered column definitions.
+
+	Invalid / unknown keys are ignored. `None`/empty returns all columns.
+	"""
+	if columns:
+		if isinstance(columns, str):
+			try:
+				columns = json.loads(columns)
+			except (ValueError, TypeError):
+				columns = []
+		if isinstance(columns, list):
+			keys = []
+			for c in columns:
+				if isinstance(c, dict) and c.get("key"):
+					keys.append(c["key"])
+				elif isinstance(c, str) and c in ALL_EMPLOYEE_COLUMN_KEYS:
+					keys.append(c)
+			cols = [c for c in EMPLOYEE_COLUMNS if c["key"] in keys]
+			if cols:
+				return cols
+	return list(EMPLOYEE_COLUMNS)
+
+
+def _sort_employee_rows(rows, sort_by=None, sort_order=None):
+	"""Sort employee rows by a column key (default: رقم الموظف = employee)."""
+	if not sort_by or sort_by not in ALL_EMPLOYEE_COLUMN_KEYS:
+		sort_by = "employee"
+	reverse = str(sort_order or "").lower() in ("desc", "descending", "1", "true")
+
+	if sort_by in _NUMERIC_FLDS:
+		rows.sort(key=lambda x: flt(x.get(sort_by)), reverse=reverse)
+	else:
+		rows.sort(key=lambda x: (x.get(sort_by) or "").lower(), reverse=reverse)
+	return rows
+
+
+def employee_headers(columns=None):
+	"""Header labels for the flat employee table (includes the Row # column)."""
+	return ["الرقم"] + [c["label"] for c in resolve_employee_columns(columns)]
+
+
+def _flat_salary_table(rows, summary, columns=None):
+	cols = resolve_employee_columns(columns)
+
 	trs = ""
-	total = 0.0
 	for i, r in enumerate(rows, start=1):
-		total += r["monthly_salary"]
-		gender = "ذكر" if r["gender"] == "Male" else ("أنثى" if r["gender"] == "Female" else "-")
+		cells = [f"<td>{i}</td>"]
+		for c in cols:
+			if c["type"] == "money":
+				cells.append(f'<td class="num">{_monetary(r.get(c["key"]) or 0)}</td>')
+			elif c["type"] == "num":
+				cells.append(f'<td class="num">{_monetary(r.get(c["key"]) or 0)}</td>')
+			else:
+				cells.append(f'<td class="r">{_wrap_text(r.get(c["key"]) or "-", TEXT_WRAP_LENGTH.get(c["key"], 20))}</td>')
 		trs += f"""
         <tr>
-            <td>{i}</td>
-            <td class="r">{r['employee']}</td>
-            <td class="r">{r['employee_name']}</td>
-            <td>{r['national_id'] or '-'}</td>
-            <td class="r">{r['nationality'] or '-'}</td>
-            <td>{gender}</td>
-            <td>{r['category']}</td>
-            <td class="num">{_monetary(r['monthly_salary'])}</td>
+            {''.join(cells)}
         </tr>"""
+
+	money_cols = [c for c in cols if c["type"] == "money"]
+	# The grand-total label spans الرقم + all text columns; the work-days slot
+	# stays as an empty num cell, then the money totals are filled.
+	has_num = any(c["type"] == "num" for c in cols)
+	text_count = len([c for c in cols if c["type"] == "text"])
+	label_span = max(1 + text_count, 1)
+	total_cells = [f'<td colspan="{label_span}" class="r">الإجمالي الكلي / Grand Total</td>']
+	if has_num:
+		total_cells.append('<td class="num"></td>')
+	for c in money_cols:
+		total_cells.append(f'<td class="num">{_monetary(summary.get(SUMMARY_TOTALS[c["key"]], 0.0))}</td>')
+
+	th_cells = [f"<th>{_wrap_text('الرقم', 5)}</th>"] + [
+		f"<th>{_wrap_text(c['label'], TEXT_WRAP_LENGTH.get(c['key'], 20))}</th>" for c in cols
+	]
 	table = f"""
-    <h2 class="section-title">{title} ({len(rows)})</h2>
+    <h2 class="section-title">تفاصيل الموظفين ({len(rows)})</h2>
     <table class="data">
+        <colgroup>{_cal_colgroup(cols)}</colgroup>
         <thead>
             <tr>
-                <th>#</th><th>رقم الموظف</th><th>اسم الموظف</th><th>الهوية / الإقامة</th>
-                <th>الجنسية</th><th>الجنس</th><th>الفئة</th><th>الراتب الشهري</th>
+                {''.join(th_cells)}
             </tr>
         </thead>
         <tbody>
             {trs}
             <tr class="total">
-                <td colspan="7">{footer_label}</td>
-                <td class="num">{_monetary(total)} {currency}</td>
+                {''.join(total_cells)}
             </tr>
         </tbody>
     </table>
@@ -377,17 +542,16 @@ def _salary_table(title, rows, currency, footer_label):
 	return table
 
 
-def employee_html(data):
+def employee_html(data, columns=None):
 	summary = data["summary"]
-	saudi_rows = data["saudi_rows"]
-	nonsaudi_rows = data["nonsaudi_rows"]
+	rows = data["total_rows"]
 	settings = frappe.get_single("GASTAT Settings")
+	currency = summary.get("currency", "")
 
 	title = "تقرير إحصاءات الموظفين"
 	subtitle = "Employee Statistics – Monthly Report"
 	head = _letterhead(title, subtitle)
 	meta = _header_meta(summary)
-	currency = summary.get("currency", "")
 
 	cards = f"""
     <div class="summary-box">
@@ -402,8 +566,7 @@ def employee_html(data):
     </div>
     """
 
-	table_saudi = _salary_table("الموظفون السعوديون", saudi_rows, currency, "إجمالي رواتب السعوديين")
-	table_nonsaudi = _salary_table("الموظفون غير السعوديين", nonsaudi_rows, currency, "إجمالي رواتب غير السعوديين")
+	table = _flat_salary_table(rows, summary, columns)
 
 	auth_name = settings.authorized_signatory_name or ""
 	auth_title = settings.authorized_signatory_title or ""
@@ -420,16 +583,18 @@ def employee_html(data):
 
 	notes = f"<div class='notes'>مرجع الراتب: {summary.get('salary_col','')} | العملة: {currency} | ملاحظات: {settings.report_footer_text or ''}</div>"
 
-	body = meta + cards + table_saudi + table_nonsaudi + notes + signature
-	return _build_html(head, body, settings.report_footer_text, title)
+	body = meta + cards + table + notes + signature
+	# 12 columns need landscape orientation to remain readable
+	extra_css = "@page { size: A4 landscape; margin: 0; }"
+	return _build_html(head, body, settings.report_footer_text, title, extra_css)
 
 
 # ============================================================================
 # Whitelisted export endpoints
 # ============================================================================
 
-def _save_and_return(html, filename, report_type, month_no, year, company):
-	pdf_data = _build_pdf(html)
+def _save_and_return(html, filename, report_type, month_no, year, company, orientation="Portrait"):
+	pdf_data = _build_pdf(html, orientation=orientation)
 	file_doc = frappe.get_doc({
 		"doctype": "File",
 		"file_name": filename,
@@ -453,12 +618,14 @@ def export_production_pdf(company=None, month=0, year=0, **kwargs):
 
 
 @frappe.whitelist()
-def export_employee_pdf(company=None, month=0, year=0, **kwargs):
-	data = get_employee_statistics(company=company, month=month or 0, year=year or 0)
-	html = employee_html(data)
+def export_employee_pdf(company=None, month=0, year=0, columns=None, sort_by=None, sort_order=None, **kwargs):
+	data = get_employee_statistics(company=company, month=month or 0, year=year or 0,
+	                               sort_by=sort_by, sort_order=sort_order)
+	html = employee_html(data, columns=columns)
 	summary = data["summary"]
 	filename = f"Employee_Statistics_{summary['month']:02d}_{summary['year']}.pdf"
-	return _save_and_return(html, filename, "Employees", summary["month"], summary["year"], summary["company"])
+	return _save_and_return(html, filename, "Employees", summary["month"], summary["year"], summary["company"],
+	                        orientation="Landscape")
 
 
 # ============================================================================
@@ -608,20 +775,24 @@ def export_production_excel(company=None, month=0, year=0, **kwargs):
 
 
 @frappe.whitelist()
-def export_employee_excel(company=None, month=0, year=0, **kwargs):
-	data = get_employee_statistics(company=company, month=month or 0, year=year or 0)
+def export_employee_excel(company=None, month=0, year=0, columns=None, sort_by=None, sort_order=None, **kwargs):
+	data = get_employee_statistics(company=company, month=month or 0, year=year or 0,
+	                               sort_by=sort_by, sort_order=sort_order)
 	summary = data["summary"]
-	saudi_rows = data["saudi_rows"]
-	nonsaudi_rows = data["nonsaudi_rows"]
+	rows = data["total_rows"]
+	cols = resolve_employee_columns(columns)
 	style = _xlsx_style()
 	wb = Workbook()
 	ws = wb.active
 	ws.title = "Employee Statistics"
+	ws.sheet_view.rightToLeft = True
+	headers = employee_headers(cols)
+	ncols = len(headers)
 
 	title = "تقرير إحصاءات الموظفين (Employee Statistics)"
 	subtitle = (f"{summary['company_name']} | {summary['month_name_ar']} {summary['year']}"
 	            f" | Salary reference: {summary.get('salary_col','')} | Currency: {summary.get('currency','')}")
-	_write_header(ws, title, subtitle, 8, style)
+	_write_header(ws, title, subtitle, ncols, style)
 
 	# summary
 	srow = 4
@@ -643,51 +814,52 @@ def export_employee_excel(company=None, month=0, year=0, **kwargs):
 		c2.alignment = style["center"]
 	srow += 3
 
-	headers = ["Row #", "Employee ID", "Employee Name", "National ID / Iqama", "Nationality", "Gender", "Category", "Monthly Salary"]
 	r = _write_table_header(ws, srow, headers, style)
 
-
-	def _section(label, rows):
-		nonlocal r
-		ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
-		c = ws.cell(row=r, column=1, value=f"{label} ({len(rows)})")
-		c.fill = style["sub_fill"]
-		c.font = style["sub_font"]
-		r += 1
-		section_total = 0.0
-		for idx, row in enumerate(rows, start=1):
-			section_total += row["monthly_salary"]
-			gender = "Male" if row["gender"] == "Male" else ("Female" if row["gender"] == "Female" else "-")
-			vals = [idx, row["employee"], row["employee_name"], row["national_id"] or "-",
-			        row["nationality"] or "-", gender, row["category"], flt(row["monthly_salary"])]
-			for col, v in enumerate(vals, start=1):
-				c = ws.cell(row=r, column=col, value=v)
-				c.border = style["border"]
-				c.alignment = style["right"] if col in (2, 3, 5) else style["center"]
-			r += 1
-		ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=7)
-		c = ws.cell(row=r, column=1, value="Sub-total")
-		c.fill = style["total_fill"]
-		c.font = style["total_font"]
-		c2 = ws.cell(row=r, column=8, value=flt(section_total))
-		c2.fill = style["total_fill"]
-		c2.font = style["total_font"]
+	money_cols = [i + 2 for i, c in enumerate(cols) if c["type"] == "money"]
+	text_cols = [i + 2 for i, c in enumerate(cols) if c["type"] == "text"]
+	for idx, row in enumerate(rows, start=1):
+		vals = [idx]
+		for c in cols:
+			v = row.get(c["key"])
+			vals.append(flt(v) if c["type"] in ("num", "money") else (v or "-"))
+		for col, v in enumerate(vals, start=1):
+			c = ws.cell(row=r, column=col, value=v)
+			c.border = style["border"]
+			c.alignment = style["right"] if col in text_cols else style["center"]
 		r += 1
 
-
-	_section("Saudi Employees (سعودي)", saudi_rows)
-	_section("Non-Saudi Employees (غير سعودي)", nonsaudi_rows)
-
-	# overall total
-	ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=7)
-	c = ws.cell(row=r, column=1, value="Grand Total")
+	# grand total: the label spans الرقم + all text columns; an empty cell covers
+	# the work-days slot (when selected), then the money totals are filled.
+	totals = [summary.get(SUMMARY_TOTALS[c["key"]], 0.0) for c in cols if c["type"] == "money"]
+	text_count = len([c for c in cols if c["type"] == "text"])
+	has_num = any(c["type"] == "num" for c in cols)
+	label_span = max(1 + text_count, 1)
+	ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=label_span)
+	c = ws.cell(row=r, column=1, value="الإجمالي الكلي / Grand Total")
 	c.fill = style["total_fill"]
-	c.font = Font(bold=True, size=12, color="FFFFFF")
-	c2 = ws.cell(row=r, column=8, value=flt(summary["total_salaries"]))
-	c2.fill = style["total_fill"]
-	c2.font = Font(bold=True, size=12, color="FFFFFF")
+	c.font = style["total_font"]
+	c.alignment = style["center"]
+	if has_num:
+		eme = ws.cell(row=r, column=label_span + 1, value=None)
+		eme.fill = style["total_fill"]
+		eme.font = style["total_font"]
+		eme.border = style["border"]
+	for i, t in enumerate(totals):
+		cc = ws.cell(row=r, column=money_cols[i], value=flt(t))
+		cc.fill = style["total_fill"]
+		cc.font = style["total_font"]
+		cc.border = style["border"]
 
-	_autofit(ws, [8, 14, 28, 20, 16, 10, 16, 16])
-	ws.freeze_panes = f"A{srow+2}"
+	widths = [6]
+	for c in cols:
+		if c["type"] == "text":
+			widths.append(22 if c["key"] in ("employee_name", "company") else 14)
+		elif c["type"] == "money":
+			widths.append(14 if c["key"] == "monthly_salary" else 12)
+		else:
+			widths.append(10)
+	_autofit(ws, widths)
+	ws.freeze_panes = f"A{srow + 2}"
 	filename = f"Employee_Statistics_{summary['month']:02d}_{summary['year']}.xlsx"
 	return _save_xlsx(wb, filename, "Employees", summary["month"], summary["year"], summary["company"])
