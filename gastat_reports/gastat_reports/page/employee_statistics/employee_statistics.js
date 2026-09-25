@@ -16,6 +16,7 @@ function init_employee_statistics(page, $page) {
 		{ key: "employee", label: "رقم الموظف", type: "text" },
 		{ key: "national_id", label: "رقم الهوية", type: "text" },
 		{ key: "employee_name", label: "اسم الموظف", type: "text" },
+		{ key: "nationality", label: "الجنسية", type: "text" },
 		{ key: "designation", label: "المسمى الوظيفي", type: "text" },
 		{ key: "company", label: "الشركة", type: "text" },
 		{ key: "payment_days", label: "ايام العمل", type: "num" },

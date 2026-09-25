@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/assets/gastat_reports/css/gastat_reports.css">
+<link rel="stylesheet" href="/assets/gastat_reports/css/gastat_reports.css?v=3">
 <script src="/assets/gastat_reports/js/pages_common.js"></script>
 
 <div class="gastat-page" id="gastat-emp-page">
@@ -58,18 +58,21 @@
 	<!-- Columns & Sorting -->
 	<div class="gastat-table-controls no-print">
 		<div class="ctl-group ctl-collapsible">
-			<button class="ctl-toggle" id="emp-cols-toggle">الأعمدة / Columns <span class="ctl-chevron">▾</span></button>
+			<button class="ctl-toggle" id="emp-cols-toggle">
+				<svg viewBox="0 0 24 24"><path d="M4 18h4c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1zm0-5h4c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1zm0-5h4c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1zm7 0h9c.55 0 1-.45 1-1s-.45-1-1-1h-9c-.55 0-1 .45-1 1s.45 1 1 1zm0 5h9c.55 0 1-.45 1-1s-.45-1-1-1h-9c-.55 0-1 .45-1 1s.45 1 1 1zm0 5h9c.55 0 1-.45 1-1s-.45-1-1-1h-9c-.55 0-1 .45-1 1s.45 1 1 1z"/></svg>
+				الأعمدة / Columns <span class="ctl-chevron">▾</span>
+			</button>
 			<div class="ctl-cols-wrap" id="emp-cols-wrap" style="display:none;">
 				<div class="ctl-cols" id="emp-cols"></div>
 			</div>
 		</div>
 		<div class="ctl-group ctl-sort">
 			<label>الترتيب / Sort by</label>
-			<select id="emp-sort"></select>
-			<select id="emp-sort-dir">
+			<span class="sort-select"><select id="emp-sort"></select></span>
+			<span class="sort-select"><select id="emp-sort-dir">
 				<option value="asc">تصاعدي (A→Z)</option>
 				<option value="desc">تنازلي (Z→A)</option>
-			</select>
+			</select></span>
 		</div>
 	</div>
 
